@@ -4,21 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="fa386519-67e1-498f-a17a-d68bc931db45" name="Changes" comment="">
-      <change afterPath="$PROJECT_DIR$/.idea/CommunityConnectivity.iml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/inspectionProfiles/profiles_settings.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/modules.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/CommunityConnectivity/__init__.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/CommunityConnectivity/automatic_functions.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/CommunityConnectivity/interactive_functions.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/CommunityConnectivity/manual_functions.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/CommunityConnectivity/settingup_functions.py" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
-    </list>
+    <list default="true" id="fa386519-67e1-498f-a17a-d68bc931db45" name="Changes" comment="" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -27,6 +13,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "LauraBachmaier"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/LauraBachmaier/communityconnectivity.git",
+    "accountId": "94ee9f9c-cbef-47d3-bdbf-96a0dac06518"
+  }
+}]]></component>
   <component name="ProblemsViewState">
     <option name="selectedTabId" value="CurrentFile" />
   </component>
@@ -94,7 +92,7 @@
       <option name="presentableId" value="Default" />
       <updated>1727024604696</updated>
       <workItem from="1727024627464" duration="2696000" />
-      <workItem from="1727027691338" duration="1837000" />
+      <workItem from="1727027691338" duration="2541000" />
     </task>
     <servers />
   </component>
