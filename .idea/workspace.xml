@@ -6,6 +6,10 @@
   <component name="ChangeListManager">
     <list default="true" id="fa386519-67e1-498f-a17a-d68bc931db45" name="Changes" comment="First commit">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CommunityConnectivity/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/CommunityConnectivity/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CommunityConnectivity/interactive_functions.py" beforeDir="false" afterPath="$PROJECT_DIR$/CommunityConnectivity/interactive_functions.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/CommunityConnectivity/settingup_functions.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -42,7 +46,7 @@
   <component name="PropertiesComponent">{
   &quot;keyToString&quot;: {
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
-    &quot;git-widget-placeholder&quot;: &quot;master&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -95,7 +99,8 @@
       <updated>1727024604696</updated>
       <workItem from="1727024627464" duration="2696000" />
       <workItem from="1727027691338" duration="3577000" />
-      <workItem from="1727083076583" duration="954000" />
+      <workItem from="1727083076583" duration="4546000" />
+      <workItem from="1727254546958" duration="7479000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <option name="closed" value="true" />
@@ -105,7 +110,15 @@
       <option name="project" value="LOCAL" />
       <updated>1727030766611</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="First commit">
+      <option name="closed" value="true" />
+      <created>1727084088559</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1727084088559</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -116,7 +129,13 @@
       <map>
         <entry key="MAIN">
           <value>
-            <State />
+            <State>
+              <option name="CUSTOM_BOOLEAN_PROPERTIES">
+                <map>
+                  <entry key="Show.Git.Branches" value="false" />
+                </map>
+              </option>
+            </State>
           </value>
         </entry>
       </map>
