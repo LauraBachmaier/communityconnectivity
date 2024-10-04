@@ -4,16 +4,7 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="fa386519-67e1-498f-a17a-d68bc931db45" name="Changes" comment="Final first changes">
-      <change beforePath="$PROJECT_DIR$/.idea/CommunityConnectivity.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/CommunityConnectivity.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/misc.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/misc.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/CommunityConnectivity/__init__.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/CommunityConnectivity/automatic_functions.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/CommunityConnectivity/interactive_functions.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/CommunityConnectivity/manual_functions.py" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/setup.py" beforeDir="false" afterPath="$PROJECT_DIR$/setup.py" afterDir="false" />
-    </list>
+    <list default="true" id="fa386519-67e1-498f-a17a-d68bc931db45" name="Changes" comment="First final version interactive workflow" />
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
@@ -120,7 +111,7 @@
       <workItem from="1727710165070" duration="54000" />
       <workItem from="1727710249372" duration="16679000" />
       <workItem from="1727802833944" duration="1619000" />
-      <workItem from="1727855808395" duration="32684000" />
+      <workItem from="1727855808395" duration="32958000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <option name="closed" value="true" />
@@ -138,7 +129,15 @@
       <option name="project" value="LOCAL" />
       <updated>1727084088559</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="First final version interactive workflow">
+      <option name="closed" value="true" />
+      <created>1728050101612</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1728050101612</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -163,7 +162,8 @@
   </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="First commit" />
-    <option name="LAST_COMMIT_MESSAGE" value="First commit" />
+    <MESSAGE value="First final version interactive workflow" />
+    <option name="LAST_COMMIT_MESSAGE" value="First final version interactive workflow" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
