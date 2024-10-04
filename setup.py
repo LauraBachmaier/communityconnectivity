@@ -11,6 +11,7 @@ setup(
     install_requires=[
         'numpy',
         'scipy',
+        'parcels',
         'dask',
         'pandas',
         'xarray',
@@ -27,8 +28,7 @@ setup(
         'trajan',
         'cmocean',
         'pygbif',
-        'dask.distributed',
         'tqdm',
     ],
-    python_requires='>=3.6',  # Specify Python version compatibility
+    python_requires='>=3.9',  # Specify Python version compatibility
 )
