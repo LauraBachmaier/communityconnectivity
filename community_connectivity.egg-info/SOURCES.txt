@@ -1,0 +1,11 @@
+README.md
+setup.py
+community_connectivity/__init__.py
+community_connectivity/automatic_functions.py
+community_connectivity/interactive_functions.py
+community_connectivity/manual_functions.py
+community_connectivity.egg-info/PKG-INFO
+community_connectivity.egg-info/SOURCES.txt
+community_connectivity.egg-info/dependency_links.txt
+community_connectivity.egg-info/requires.txt
+community_connectivity.egg-info/top_level.txt

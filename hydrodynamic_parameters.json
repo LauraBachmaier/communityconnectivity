@@ -1,0 +1,1 @@
+{"dataset_id": "cmems_mod_nws_phy_anfc_0.027deg-2D_PT1H-m", "longitude_range": [-7.38, 3.1], "latitude_range": [48.92, 52.68], "time_range": ["2023-03-20", "2024-03-20"], "username": "lbachmaier", "password": "Fjppxe37gx4q!", "output_path": "C:\\\\Users\\\\lbachmaier\\\\Documents\\\\Python Code\\\\Prelim_models\\\\Hydrodynamic_Data\\\\Southuk.nc", "export": false}

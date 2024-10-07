@@ -1,0 +1,28 @@
+Metadata-Version: 2.1
+Name: community_connectivity
+Version: 0.1
+Summary: A package for multi-species dispersal modelling using Lagrangian particle tracking in ocean models and related tasks.
+Home-page: https://github.com/LauraBachmaier/communityconnectivity
+Author: Laura Bachmaier
+Author-email: laura,bachmaier@plymouth.ac.uk
+Requires-Python: >=3.9
+Requires-Dist: numpy
+Requires-Dist: scipy
+Requires-Dist: parcels
+Requires-Dist: dask
+Requires-Dist: pandas
+Requires-Dist: xarray
+Requires-Dist: matplotlib
+Requires-Dist: geopandas
+Requires-Dist: shapely
+Requires-Dist: netCDF4
+Requires-Dist: cartopy
+Requires-Dist: IPython
+Requires-Dist: requests
+Requires-Dist: folium
+Requires-Dist: psutil
+Requires-Dist: copernicusmarine
+Requires-Dist: trajan
+Requires-Dist: cmocean
+Requires-Dist: pygbif
+Requires-Dist: tqdm
