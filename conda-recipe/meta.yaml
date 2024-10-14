@@ -1,0 +1,57 @@
+package:
+  name: community_connectivity
+  version: "0.1.0"
+
+source:
+  path: ../  # Path to your source code (points to the root of your project)
+
+build:
+  number: 0
+  script: python setup.py install  # Install the package
+
+requirements:
+  build:
+    - python
+    - setuptools
+  run:
+    - python                     # Core Python environment
+    - numpy                      # Numerical computing library for array operations
+    - pandas                     # Data manipulation and analysis library
+    - parcels                    # Ocean Parcels package for Lagrangian particle tracking
+    - scipy                      # Scientific computing library (includes scipy.ndimage)
+    - xarray                     # Multi-dimensional array data structures for labeled data
+    - matplotlib                 # Plotting library for creating visualizations
+    - geopandas                  # Geospatial data manipulation and analysis
+    - shapely                    # Geometry objects for geospatial data manipulation
+    - netCDF4                    # NetCDF file handling for array data
+    - cartopy                    # Cartographic projections for geospatial plotting
+    - ipython                    # IPython utilities for interactive computing (required by Jupyter)
+    - requests                   # HTTP requests library for making web requests
+    - folium                     # Python library for generating interactive maps
+    - psutil                     # Memory availability checks for system monitoring
+    - copernicusmarine           # Download hydrodynamic data from Copernicus
+    - trajan                     # Oceanographic and geospatial data handling (assumed to be custom or less common)
+    - cmocean                    # Colormaps specifically designed for oceanographic data
+    - pygbif                     # Python client for Global Biodiversity Information Facility (GBIF)
+    - ipywidgets                 # Widgets for Jupyter notebooks for interactivity
+    - gcc                        # Compiler needed for compiling C, C++ code
+    - gfortran                   # Fortran compiler needed by Ocean Parcels
+    - glob                       # File path pattern matching
+    - os                         # Operating system interface for file and directory operations
+    - json                       # JSON data handling
+    - copy                       # For copying objects
+    - itertools                  # Iteration utilities for efficient looping
+    - gc                         # Garbage collection to manage memory during simulations
+    - tqdm                       # Progress bar library
+    - math                       # Standard library for mathematical functions
+    - datetime                   # Standard library for manipulating dates and times
+    - operator                   # Standard library for functional programming constructs
+
+test:
+  commands:
+    - python -c "import community_connectivity"  # Test that your package can be imported
+
+about:
+  home: https://your-homepage-url.com
+  license: MIT
+  summary: "A description of your package functionality."

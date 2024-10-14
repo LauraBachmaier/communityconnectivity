@@ -1,11 +1,158 @@
+
+# region Interactive Functions
+
+# region Import Modules
+def load_modules():
+    """
+    Function to import and initialize all required modules for Lagrangian Particle Tracking in ocean models
+    and related tasks. If a module is not installed, it attempts to install it using pip.
+    """
+    import importlib
+    import subprocess
+    import sys
+
+    # Import specific functions/classes from these modules
+    from parcels import (
+        AdvectionRK4, FieldSet, JITParticle, ParticleSet, Variable, download_example_dataset,
+        Field, ParcelsRandom, VectorField, DiffusionUniformKh, Geographic, GeographicPolar
+    )
+
+    # Import other necessary modules
+    from datetime import timedelta, datetime
+    from operator import attrgetter
+    import matplotlib.pyplot as plt
+    import matplotlib.gridspec as gridspec
+    from matplotlib.animation import FuncAnimation
+    from matplotlib.colors import ListedColormap
+    from matplotlib.lines import Line2D
+    from matplotlib import colormaps
+    import numpy as np
+    import scipy.interpolate as interpolate
+    from scipy.ndimage import binary_dilation
+    import numpy.ma as ma
+    import pandas as pd
+    import trajan as ta
+    import xarray as xr
+    import cmocean
+    import geopandas as gpd
+    from shapely.geometry import Point, Polygon
+    from netCDF4 import Dataset
+    from glob import glob
+    import os
+    import cartopy.crs as ccrs
+    from IPython.display import HTML, Image, display, clear_output
+    import json
+    import copy
+    import itertools
+    from pygbif import occurrences
+    import folium
+    from folium import plugins
+    from scipy.spatial import cKDTree
+    import psutil
+    import gc
+    import copernicusmarine as cm
+    from tqdm import tqdm
+    import ipywidgets as widgets
+    import cartopy.feature as cfeature
+    import math
+
+    # Make these modules available globally
+    globals().update(locals())
+
+# endregion
+
+# region Processing the Species Trait Database
+# Function to calculate dispersal period for each species and determine the overall time range
+def calculate_overall_dispersal_period(traits):
+    """
+    Calculates the overall dispersal period (earliest spawning start to latest dispersal end)
+    based on all species' data.
+
+    Args:
+        traits (list): List of dictionaries with species traits.
+
+    Returns:
+        tuple: Overall start and end dates for dispersal period (as strings).
+    """
+    overall_start = None
+    overall_end = None
+
+    # Loop through all species
+    for species in traits:
+        # Parse spawning dates
+        spawning_start_date = datetime.strptime(species['spawning_start'], "%d/%m/%Y")
+        spawning_end_date = datetime.strptime(species['spawning_end'], "%d/%m/%Y")
+        max_pld = int(species['max_PLD'])
+
+        # Calculate the dispersal end date by adding max PLD to the spawning end date
+        dispersal_end_date = spawning_end_date + timedelta(days=max_pld)
+
+        # Update overall start and end dates
+        if overall_start is None or spawning_start_date < overall_start:
+            overall_start = spawning_start_date
+        if overall_end is None or dispersal_end_date > overall_end:
+            overall_end = dispersal_end_date
+
+    return overall_start.strftime('%Y-%m-%d'), overall_end.strftime('%Y-%m-%d')
+
+# Function to load species traits from the CSV file
+# Function to load species traits from the CSV file
+def load_species_traits_from_csv():
+    """
+    Prompts the user to provide a CSV file with species traits and processes the data.
+
+    Returns:
+        dict: Dictionary containing the species traits, including overall dispersal period.
+    """
+    species_traits_path = input("Enter the input path and file name for your species traits data: ").strip()
+    if not species_traits_path.endswith(".csv"):
+        species_traits_path += ".csv"
+
+    if not os.path.exists(species_traits_path):
+        print(f"File not found: {species_traits_path}")
+        return None
+
+    traits = []
+
+    # Open and read the CSV file
+    with open(species_traits_path, mode='r') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            traits.append({
+                "species_name": row['species_name'],
+                "spawning_start": row['spawning_start'],
+                "spawning_end": row['spawning_end'],
+                "min_PLD": int(row['min_PLD']),
+                "max_PLD": int(row['max_PLD']),
+                "average_PLD": int(row['average_PLD']),
+                "fecundity": int(row['fecundity'])
+            })
+
+    # Calculate the overall dispersal period for all species
+    overall_start, overall_end = calculate_overall_dispersal_period(traits)
+
+    print(f"Overall dispersal period (all species): {overall_start} to {overall_end}")
+
+    # Return the overall dispersal period along with the species data
+    return {
+        "overall_dispersal_start": overall_start,
+        "overall_dispersal_end": overall_end
+    }, species_traits_path, traits
+
+# endregion
+
 # region Setting the Hydrodynamic Parameters
 ## Collecting Hydrodynamic Parameters
+# Collecting Hydrodynamic Parameters
+# Function to collect hydrodynamic parameters and calculate time range and runtime
 def collect_hydro_params():
     """
-    Collects the hydrodynamic data parameters from the user.
+    Collects the hydrodynamic data parameters from the user and incorporates species traits for time range calculation.
 
     Returns:
         dict: Dictionary containing the user-provided parameters.
+        str: Path to the species traits CSV file.
+        timedelta: The total runtime (dispersal duration) in days.
     """
     username = input("Enter your username: ")
     password = input("Enter your password: ")
@@ -18,10 +165,27 @@ def collect_hydro_params():
         float(input("Enter the minimum latitude: ")),
         float(input("Enter the maximum latitude: "))
     ]
+
+    # Load species traits from the CSV file and calculate the overall dispersal period
+    dispersal_time, species_traits_path, traits  = load_species_traits_from_csv()
+    if not dispersal_time:
+        print("Error loading species traits. Aborting operation.")
+        return None, None, None
+
+    # Use the overall dispersal period from the species traits as the default time range
     time_range = [
-        input("Enter the start date (YYYY-MM-DD): "),
-        input("Enter the end date (YYYY-MM-DD): ")
+        datetime.strptime(dispersal_time["overall_dispersal_start"], '%Y-%m-%d'),
+        datetime.strptime(dispersal_time["overall_dispersal_end"], '%Y-%m-%d')
     ]
+
+    # Calculate the runtime in days from the start to the end of the hydrodynamic data
+    runtime = (time_range[1] - time_range[0]).days  # timedelta object representing the total time in days
+
+    print(f"Runtime (in days): {runtime} days")
+
+    # Prompt the user for export option
+    export_input = input("Do you want to export the data to a NetCDF file? (yes/no): ").strip().lower()
+    export = True if export_input in ["yes", "y"] else False
 
     # Get the output path from the user without file extension
     output_path = input("Enter the output path and file name: ")
@@ -29,10 +193,6 @@ def collect_hydro_params():
     # Ensure that the file has a .nc extension
     if not output_path.endswith(".nc"):
         output_path += ".nc"
-
-    # Prompt the user for export option
-    export_input = input("Do you want to export the data to a NetCDF file? (yes/no): ").strip().lower()
-    export = True if export_input in ["yes", "y"] else False
 
     return {
         "dataset_id": dataset_id,
@@ -42,7 +202,10 @@ def collect_hydro_params():
         "username": username,
         "password": password,
         "output_path": output_path,
-        "export": export
+        "export": export,
+        "traits": traits,
+        "species_traits_path": species_traits_path,
+        "runtime": runtime
     }
 
 ## Edit Hydrodynamic Parameters
@@ -51,7 +214,7 @@ def edit_hydro_params(hydro_params):
     Allows the user to edit existing parameters.
 
     Args:
-        params (dict): Dictionary of existing parameters.
+        hydro_params (dict): Dictionary of existing parameters.
 
     Returns:
         dict: Updated dictionary of parameters.
@@ -60,7 +223,7 @@ def edit_hydro_params(hydro_params):
     list_keys = {
         'longitude_range': float,
         'latitude_range': float,
-        'time_range': str  # Time range will stay as a string
+        'time_range': str  # Time range will be treated as datetime objects
     }
 
     # Iterate over each parameter in the dictionary
@@ -75,14 +238,13 @@ def edit_hydro_params(hydro_params):
                         # Handle date input for time_range
                         try:
                             new_value = [
-                                input(
-                                    f"Enter the new start date for {key} (YYYY-MM-DD) (current value: {value[0]}): "),
-                                input(
-                                    f"Enter the new end date for {key} (YYYY-MM-DD) (current value: {value[1]}): ")
+                                datetime.strptime(input(
+                                    f"Enter the new start date for {key} (YYYY-MM-DD) (current value: {value[0].strftime('%Y-%m-%d')}): "),
+                                    '%Y-%m-%d'),
+                                datetime.strptime(input(
+                                    f"Enter the new end date for {key} (YYYY-MM-DD) (current value: {value[1].strftime('%Y-%m-%d')}): "),
+                                    '%Y-%m-%d')
                             ]
-                            # Validate date format
-                            for date_str in new_value:
-                                datetime.strptime(date_str, '%Y-%m-%d')
                         except ValueError:
                             print("Invalid date format. Please enter dates in YYYY-MM-DD format.")
                             continue
@@ -117,6 +279,12 @@ def edit_hydro_params(hydro_params):
             # Update the parameter in the dictionary
             hydro_params[key] = new_value
 
+    # Convert the time_range back to strings before saving
+    hydro_params['time_range'] = [
+        hydro_params['time_range'][0].strftime('%Y-%m-%d'),
+        hydro_params['time_range'][1].strftime('%Y-%m-%d')
+    ]
+
     # Save the updated parameters to the JSON file
     with open("hydrodynamic_parameters.json", "w") as file:
         json.dump(hydro_params, file, indent=4)
@@ -130,7 +298,9 @@ def params():
     and then saves them to a JSON file.
 
     Returns:
-        dict: Dictionary containing all the user-provided parameters.
+        dict: Dictionary containing all the user-provided parameters (excluding species traits, path, and runtime).
+        str: The species traits path.
+        timedelta: The runtime in days.
     """
     params_file = "hydrodynamic_parameters.json"
 
@@ -140,6 +310,16 @@ def params():
         if reuse_input in ["yes", "y"]:
             with open(params_file, "r") as file:
                 hydro_params = json.load(file)
+
+                # Convert runtime from days back to a timedelta object
+                #runtime = timedelta(days=hydro_params['runtime'])
+
+                # Convert time_range from strings back to datetime objects
+                hydro_params['time_range'] = [
+                    datetime.strptime(hydro_params['time_range'][0], '%Y-%m-%d'),
+                    datetime.strptime(hydro_params['time_range'][1], '%Y-%m-%d')
+                ]
+
                 print("Reusing existing parameters:")
                 for key, value in hydro_params.items():
                     print(f"{key}: {value}")
@@ -149,10 +329,30 @@ def params():
             if edit_input in ["yes", "y"]:
                 hydro_params = edit_hydro_params(hydro_params)
 
-            # Save and return the (possibly edited) parameters
+            # Save runtime as days in the JSON file
+            #hydro_params['runtime'] = runtime.days
+
+            # Convert the time_range back to strings before saving
+            hydro_params['time_range'] = [
+                hydro_params['time_range'][0].strftime('%Y-%m-%d'),
+                hydro_params['time_range'][1].strftime('%Y-%m-%d')
+            ]
+
+            # Save the (possibly edited) parameters back to the file
             with open(params_file, "w") as file:
                 json.dump(hydro_params, file)
-            return hydro_params
+
+            # Extract species traits, path, and return runtime as timedelta
+            species_traits_path = hydro_params.get("species_traits_path", None)
+            traits = hydro_params.get("traits", None)
+            runtime = hydro_params.get("runtime", None)
+
+            # Remove the traits and species traits path before returning hydro_params
+            hydro_params.pop("traits", None)
+            hydro_params.pop("species_traits_path", None)
+            hydro_params.pop("runtime", None)
+
+            return hydro_params, species_traits_path, runtime, traits
 
     # If not reusing or no existing file, prompt the user for input
     hydro_params = collect_hydro_params()
@@ -162,12 +362,34 @@ def params():
     if review_input in ["yes", "y"]:
         hydro_params = edit_hydro_params(hydro_params)
 
+    # Calculate runtime as timedelta
+    runtime = hydro_params['runtime']
+
+    # Save runtime as days in the JSON file
+    hydro_params['runtime'] = runtime.days
+
+    # Convert the time_range back to strings before saving
+    hydro_params['time_range'] = [
+        hydro_params['time_range'][0].strftime('%Y-%m-%d'),
+        hydro_params['time_range'][1].strftime('%Y-%m-%d')
+    ]
+
     # Save the parameters to a JSON file
     with open(params_file, "w") as file:
         json.dump(hydro_params, file)
 
     print("Parameters have been saved to 'hydrodynamic_parameters.json'.")
-    return hydro_params
+
+    # Extract species traits and species traits path
+    traits = hydro_params.get("traits", None)
+    species_traits_path = hydro_params.get("species_traits_path", None)
+
+    # Remove the species traits, path, and runtime from hydro_params before returning
+    hydro_params.pop("traits", None)
+    hydro_params.pop("species_traits_path", None)
+    hydro_params.pop("runtime", None)
+
+    return hydro_params, species_traits_path, runtime, traits
 # endregion
 
 # region Downloading Hydrodynamic Data
@@ -275,20 +497,18 @@ def edit_spp_params(spp_params):
     return spp_params
 
 ### Collect Species Occurrence Parameters
-def collect_spp_occ_params():
+def collect_spp_occ_params(species_traits_path):
     """
     Collects the species occurrence parameters from the user in one streamlined prompt.
 
     Returns:
         dict: Dictionary containing the user-provided parameters.
     """
-    # Prompt for species traits CSV file path
-    species_traits_path = input("Enter the input path and file name: ").strip()
-    if not species_traits_path.endswith(".csv"):
-        species_traits_path += ".csv"
 
     # Check if the user wants to reuse an existing GeoJSON file
-    geojson_reuse = input("Do you want to reuse an existing GeoJSON file? (yes/no): ").strip().lower()
+    print("This package requires a GeoJSON file of your study area.")
+    print("You can either upload your own file or use the package functionality to select your study area.")
+    geojson_reuse = input("Do you want to use an existing GeoJSON file? (yes/no): ").strip().lower()
 
     if geojson_reuse in ["yes", "y"]:
         # Prompt for GeoJSON file path, adding the .geojson extension if not provided
@@ -299,7 +519,7 @@ def collect_spp_occ_params():
         geojson_file_path = None
 
     # Check if the user wants to save the results as a CSV file
-    save_csv = input("Do you want to save the results as a CSV file? (yes/no): ").strip().lower() == 'yes'
+    save_csv = input("Do you want to save the species occurrence data as a CSV file? (yes/no): ").strip().lower() == 'yes'
     if save_csv:
         # Prompt for CSV file save path, adding the .csv extension if not provided
         csv_file_path = input("Enter the output path and file name: ").strip()
@@ -648,7 +868,7 @@ def spp_distribution_map(clean_spp):
 # endregion
 
 ## region Complete Species Occurrence Data Download
-def spp_occ():
+def spp_occ(hydro_data, species_traits_path):
     """
     This function handles species occurrence data extraction, allowing for reusing or editing
     previously saved parameters or drawing a new polygon to define the study area.
@@ -671,13 +891,13 @@ def spp_occ():
                 spp_params = edit_spp_params(spp_params)
         else:
             # Collect new parameters if not reusing
-            spp_params = collect_spp_occ_params()
+            spp_params = collect_spp_occ_params(species_traits_path)
     else:
         # If no parameters file exists, collect new parameters
-        spp_params = collect_spp_occ_params()
+        spp_params = collect_spp_occ_params(species_traits_path)
 
     # Save updated parameters after any potential edits
-    with open(spp_params, 'w') as file:
+    with open(params_file, 'w') as file:
         json.dump(spp_params, file, indent=4)
 
     # Step 2: Use the geojson file path if it exists
@@ -698,11 +918,11 @@ def spp_occ():
     geometry = read_geojson(geojson_file_path)
 
     # Step 4: Load the species traits CSV
-    species_df = pd.read_csv(params['species_traits_path'])
+    traits = pd.read_csv(spp_params['species_traits_path'])
 
     # Step 5: Download species occurrences for each species
     all_data = []
-    species_list = species_df['species_name'].tolist()
+    species_list = traits['species_name'].tolist()
     for species_name in species_list:
         all_data.extend(get_spp_occ(species_name, geometry))
 
@@ -769,8 +989,8 @@ def map_spp_to_grid(full_grid_df, clean_spp):
     - species_data: DataFrame with columns 'latitude', 'longitude', and 'species'.
 
     Returns:
-    - all_species_grid: Numpy array of latitudes and longitudes of all species occurrences.
-    - species_grids: Dictionary of DataFrames, each containing species-specific data (longitude, latitude, grid_id).
+    - all_species_grid: Numpy array of unique latitudes and longitudes of all species occurrences, ensuring unique grid_ids.
+    - species_grids: Dictionary of DataFrames, each containing species-specific data (longitude, latitude, grid_id) with unique lat/lon pairs per species.
     """
     # Extract grid coordinates and IDs
     grid_coords = full_grid_df[['longitude', 'latitude']].values
@@ -784,6 +1004,7 @@ def map_spp_to_grid(full_grid_df, clean_spp):
 
     # List to collect all species grid points (for the all_species_grid output)
     all_species_points = []
+    all_species_grid_ids = []
 
     # Process each species separately
     for species in clean_spp['species'].unique():
@@ -798,22 +1019,34 @@ def map_spp_to_grid(full_grid_df, clean_spp):
         nearest_grid_points = grid_coords[indices]
         nearest_grid_ids = grid_ids[indices]
 
-        # Create a DataFrame for this species
+        # Create a DataFrame for this species, ensuring unique (longitude, latitude) pairs
         species_df = pd.DataFrame({
             'species': species,
             'longitude': nearest_grid_points[:, 0],
             'latitude': nearest_grid_points[:, 1],
             'grid_id': nearest_grid_ids
-        })
+        }).drop_duplicates(subset=['longitude', 'latitude'])  # Ensure unique lat/lon pairs
 
         # Store the species-specific DataFrame in the dictionary
         species_grids[species] = species_df
 
-        # Append species grid points to the list for all_species_grid
-        all_species_points.append(nearest_grid_points)
+        # Append species grid points and grid IDs to the lists for all_species_grid
+        all_species_points.append(species_df[['longitude', 'latitude']].values)
+        all_species_grid_ids.append(species_df['grid_id'].values)
 
     # Concatenate all species grid points into a single numpy array for all_species_grid
-    all_species_grid = np.vstack(all_species_points)
+    all_species_points = np.vstack(all_species_points)
+    all_species_grid_ids = np.hstack(all_species_grid_ids)
+
+    # Combine the grid points and IDs, and drop duplicates based on grid IDs (ensures unique grid_id)
+    unique_all_species = pd.DataFrame({
+        'longitude': all_species_points[:, 0],
+        'latitude': all_species_points[:, 1],
+        'grid_id': all_species_grid_ids
+    }).drop_duplicates(subset=['grid_id'])
+
+    # Extract the unique grid points for all_species_grid
+    all_species_grid = unique_all_species[['longitude', 'latitude']].values
 
     return all_species_grid, species_grids
 
@@ -895,11 +1128,10 @@ def save_grids(release_grids=None, settlement_grids=None, full_grid=None):
                 else:
                     print(f"Invalid data format for grid ID '{grid_id}', skipping.")
 
-    print("Grid setup complete.")
 # endregion
 
 ## region Setup Particle Release and Settlement Strategy
-def setup_release_settlement(coastalmask, clean_spp, spp_params):
+def setup_release_settlement(coastalmask, clean_spp, spp_params, lonarray, latarray):
     """
     Sets up the release and settlement grids based on user choices.
 
@@ -1012,8 +1244,6 @@ def setup_release_settlement(coastalmask, clean_spp, spp_params):
 
     # Step 6: Optionally save release and settlement grids as CSV
     save_grids(release_grids=release_grids, settlement_grids=settlement_grids, full_grid=full_grid)
-
-    print("Release and settlement grid setup complete.")
 
     return meshgrid, release_grids, settlement_grids, full_grid_df, grid_ids
 # endregion
@@ -1138,7 +1368,7 @@ def calculate_chunk_size(hydrodata, available_memory, safety_factor=0.8):
 # endregion
 
 ## region Create Fieldset
-def create_fieldset(hydrodata):
+def create_fieldset(hydro_data, landmask, grid_ids):
     """
     Create fieldset with dynamic chunking based on available memory.
 
@@ -1149,17 +1379,17 @@ def create_fieldset(hydrodata):
     - FieldSet object with dynamically chunked data.
     """
     # Step 1: Check available system memory
-    mem = psutil.virtual_memory()
-    available_memory = mem.available / (1024 ** 2)  # Convert to MB
+    #mem = psutil.virtual_memory()
+    #available_memory = mem.available / (1024 ** 2)  # Convert to MB
 
-    # Step 3: Open dataset with dynamically calculated chunks
-    hydrodata_copy = hydrodata.copy()
+    # Step 2: Open dataset with dynamically calculated chunks
+    hydro_data_copy = hydro_data.copy()
 
     # Calculate optimal chunk sizes based on available memory and dataset size
-    chunks = calculate_chunk_size(hydrodata_copy, available_memory)
+    # chunks = calculate_chunk_size(hydrodata_copy, available_memory)
 
-    # Step 4: Proceed with fieldset creation (as in your previous code)
-    var = hydrodata_copy.variables["uo"]
+    # Step 3: Proceed with fieldset creation (as in your previous code)
+    var = hydro_data_copy.variables["uo"]
     num_dims = len(var.shape)
 
     if num_dims == 3:
@@ -1176,15 +1406,13 @@ def create_fieldset(hydrodata):
 
     # Create the FieldSet (replace FieldSet creation logic based on your needs)
     fieldset = FieldSet.from_xarray_dataset(
-        ds=hydrodata_copy,
+        ds=hydro_data_copy,
         variables=variables,
         dimensions=dimensions,
         mesh='spherical'
     )
 
     # Step 4: Calculate all necessary components
-    latarray, lonarray, landmask, full_grid, full_grid_df, coastal_grid, grid_ids, coastalmask = create_grid(
-        hydrodata)
     landvector_U, landvector_V, Lons, Lats = Unbeaching_Field(fieldset, landmask)
 
     # Step 5: Add Landmask
@@ -1216,18 +1444,19 @@ def create_fieldset(hydrodata):
 # endregion
 
 # region Creating the ParticleSet
-def create_pset(fieldset, meshgrid):
+def create_pset(fieldset,meshgrid, runtime):
     """
     Creates a ParticleSet with staggered release intervals or a single release.
 
     Parameters:
     - fieldset: The fieldset object to be used for the particle set.
     - meshgrid: 2D numpy array with latitude and longitude pairs.
+    - runtime: Total runtime of the simulation as a timedelta object.
 
     Returns:
     - pset: The created ParticleSet object.
     """
-    # Extract latitude and longitude arrays from the meshgrid
+    # Extract lats and lons from the release meshgrid
     latarray = meshgrid[:, 1]  # Assuming the latitude is in the second column
     lonarray = meshgrid[:, 0]  # Assuming the longitude is in the first column
 
@@ -1243,80 +1472,103 @@ def create_pset(fieldset, meshgrid):
     # Release interval
     release_mode = input("Enter 'staggered' for staggered release or 'single' for a single release: ").strip().lower()
 
+    interval = None  # Initialize interval
+
+    # Set up release times based on mode
     if release_mode == 'staggered':
+        # Choose release interval (hourly, daily, weekly, or custom)
         default_interval = 'daily'
         release_interval = input(
             f"Enter the release interval ('hourly', 'daily', 'weekly' or a custom period in days (e.g., 3 for a 3-day interval), default is {default_interval}): ").strip().lower()
 
         if release_interval == 'hourly':
-            repeatdt = timedelta(hours=1)
+            interval = timedelta(hours=1)
         elif release_interval == 'daily':
-            repeatdt = timedelta(days=1)
+            interval = timedelta(days=1)
         elif release_interval == 'weekly':
-            repeatdt = timedelta(weeks=1)
+            interval = timedelta(weeks=1)
         else:
             try:
                 # Assume the user inputs a number of days for a custom period
                 custom_days = int(release_interval)
-                repeatdt = timedelta(days=custom_days)
+                interval = timedelta(days=custom_days)
             except ValueError:
-                raise ValueError(
-                    "Invalid release interval. Please enter 'hourly', 'daily', 'weekly', or a custom number of days (e.g., 3 for a 3-day interval).")
+                raise ValueError("Invalid release interval. Please enter 'hourly', 'daily', 'weekly', or a custom number of days (e.g., 3 for a 3-day interval).")
+        # Ensure runtime is a numeric value in days (convert timedelta to days)
+        #if isinstance(runtime, timedelta):
+        #    runtime_seconds = runtime.total_seconds()  # Convert timedelta to seconds
+        #else:
+        #    raise ValueError("Runtime should be provided as a timedelta object.")
 
+        # Convert interval to seconds
+        #interval_seconds = interval.total_seconds()  # Convert interval to seconds
+
+        # Step 5: Calculate how many intervals fit into the runtime
+        num_intervals = math.ceil(runtime / interval)  # Round up the number of intervals
+        adjusted_runtime = num_intervals * interval  # Adjust the runtime to fit intervals
+        #runtime_days = int(adjusted_runtime / 86400)
+
+        # Ensure there are enough particles for the number of intervals
+        #if npart / num_intervals < 1:
+         #   print(f"Warning: You have fewer particles than intervals ({npart} < {num_intervals}). Adjusting npart.")
+
+        # Adjust npart to ensure we can release whole particles
+        particles_per_interval = math.ceil(npart / num_intervals)  # Round up particles per interval
+        total_particles = particles_per_interval * num_intervals  # Calculate the total number of particles
+
+        # Update npart if it needs to be increased
+        if particles_per_interval != npart:
+            npart = total_particles
+            print(
+                f"Adjusted npart to {npart} to fit the number of intervals and ensure whole particles per release.")
+
+        # Calculate particles per interval and print result
+        print(
+            f"Staggered release chosen. {total_particles} particles will be released with {particles_per_interval} particles per location across {num_intervals} intervals.")
+
+        # Calculate the repeat interval (repeatdt)
+        repeatdt = adjusted_runtime / num_intervals  # Adjusted interval duration
+        print(f"The new runtime is {runtime_days} days to fit {num_intervals} intervals.")
+        print(f"Particles will be released every {repeatdt} days.")
     elif release_mode == 'single':
         repeatdt = None
+        adjusted_runtime = int(runtime)
     else:
         raise ValueError("Invalid release mode. Please enter 'staggered' or 'single'.")
 
-    # Total simulation duration
-    # default_duration = 365
-    # total_duration_days = input(f"Enter the total duration of the simulation in days (default is {default_duration}): ")
-    # total_duration_days = int(total_duration_days) if total_duration_days else default_duration
-
-    # Define the ParticleSet
-    lat_repeated = np.repeat(lats, npart)
-    lon_repeated = np.repeat(lons, npart)
-
-    # Add particle IDs
-    ids = np.arange(len(lat_repeated))
-
-    # Constant horizontal diffusivity (kh) in m^2/s
-    default_kh = 100
-    kh_input = input(f"Enter the constant horizontal diffusivity (kh) in m^2/s (default is {default_kh}): ")
-    kh = float(kh_input) if kh_input else default_kh
-
-    # Step 3: Creating a new Particle Class with extra variables
+    # Particle Class with extra variables
     extra_vars = [
         Variable("distance", initial=0.0, dtype=np.float32),
         Variable("prev_lon", dtype=np.float32, to_write=False, initial=attrgetter("lon")),
         Variable("prev_lat", dtype=np.float32, to_write=False, initial=attrgetter("lat")),
         Variable('on_land', dtype=np.int32, initial=0),
-        Variable('release_id', dtype=np.int32, initial=0),  # Track release cohort,
+        # Variable('release_id', dtype=np.int32, initial=0),  # Track release cohort,
         Variable('grid_id', dtype=np.int32, initial=0)
     ]
 
+    # Create ParticleClass
     Particle = JITParticle.add_variables(extra_vars)
 
-    # Step 4: Add constant fields for diffusion
+    # Include npart - number of particles to be released at each site
+    lat = list(itertools.chain.from_iterable(itertools.repeat(x, npart) for x in lats))
+    lon = list(itertools.chain.from_iterable(itertools.repeat(x, npart) for x in lons))
+
+    # Set constant horizontal diffusivity (kh) in m^2/s
+    default_kh = 100
+    kh_input = input(f"Enter the constant horizontal diffusivity (kh) in m^2/s (default is {default_kh}): ")
+    kh = float(kh_input) if kh_input else default_kh
     fieldset.add_constant_field("Kh_zonal", kh, mesh="spherical")
     fieldset.add_constant_field('Kh_meridional', kh, mesh='spherical')
 
-    # Step 5: Create and return the ParticleSet
-    if release_mode == 'staggered':
-        pset = ParticleSet(fieldset=fieldset,
-                           pclass=Particle,
-                           lon=lon_repeated,
-                           lat=lat_repeated,
-                           repeatdt=repeatdt,
-                           release_id=ids)
-    else:  # Single release mode
-        pset = ParticleSet(fieldset=fieldset,
-                           pclass=Particle,
-                           lon=lon_repeated,
-                           lat=lat_repeated,
-                           release_id=ids)
+    # Create and return the ParticleSet based on the release mode
+    pset = ParticleSet(fieldset=fieldset,
+                       pclass=Particle,
+                       lon=lon,
+                       lat=lat,
+                       repeatdt = repeatdt)
 
-    return pset
+    return pset, adjusted_runtime
+
 # endregion
 
 # region Creating Custom Kernels
@@ -1364,45 +1616,48 @@ def create_custom_kernels():
     # Return the kernels in the desired format
     return (
             pset.Kernel(AdvectionRK4) +
-            pset.Kernel(DeleteErrorParticle) +
             pset.Kernel(TotalDistance) +
             pset.Kernel(DiffusionUniformKh) +
             pset.Kernel(Sample_land) +
             pset.Kernel(Unbeaching) +
-            pset.Kernel(Grid_id)
+            pset.Kernel(Grid_id)+
+            pset.Kernel(DeleteErrorParticle)
     )
 # endregion
 
 # region Executing the Simulation
-def execute_simulation(pset, kernels):
+def execute_simulation(pset, kernels, adjusted_runtime):
     """
     Optimized function to execute the particle simulation, with parallelization, chunking,
     and efficient handling of large outputs using Dask.
     """
     # Step 2: Prompt the user for output file path (without extension)
-    output_file_path = input("Enter file path and name (without extension) to save the final simulation output: ")
-    output_file_path_with_extension = f"{output_file_path}.zarr"
+    output_path = input("Enter the output path and file name to save the final simulation output: ")
+
+    # Ensure that the file has a .nc extension
+    if not output_path.endswith(".zarr"):
+        output_path += ".zarr"
 
     # Step 3: Prompt the user for output frequency
-    outputdt = int(input("Enter output frequency in hours: "))
+    output_dt = int(input("Enter output frequency in hours: "))
+    output_dt = timedelta(hours=output_dt)
 
-    # Step 4: Prompt the user for runtime in days
-    runtime_days = int(input("Enter simulation runtime in days: "))
-    runtime = timedelta(days=runtime_days)
-
-    # Step 5: Prompt the user for dt in minutes
+    # Step 4: Prompt the user for dt in minutes
     dt_minutes = int(input("Enter time step (dt) in minutes: "))
     dt = timedelta(minutes=dt_minutes)
 
-    # Step 6: Set chunk sizes based on the number of particles for better efficiency
-    num_particles = len(pset)
-    chunk_size = (min(1e4, num_particles), 1)  # Adjust based on particle count
+    # Step 5: Runtime formatting
+    runtime = timedelta(days=adjusted_runtime)
+
+    # Step 5: Set chunk sizes based on the number of particles for better efficiency
+    #num_particles = len(pset)
+    #chunk_size = (min(1e4, num_particles), 1)  # Adjust based on particle count
     # manual chunks=(int(1e4), 1)
 
-    # Step 8: Create a ParticleFile object with chunking and output frequency
+    # Step 6: Create a ParticleFile object with chunking and output frequency
     output_file = pset.ParticleFile(
-        name=output_file_path_with_extension,
-        outputdt=outputdt,
+        name=output_path,
+        outputdt=output_dt,
         chunks=(int(1e4), 1)  # Efficient chunking scheme for large datasets
     )
 
@@ -1417,16 +1672,95 @@ def execute_simulation(pset, kernels):
 
     # Step 10: Automatically load the output using xarray's open_zarr
     print("Loading the output into the environment...")
-    with ProgressBar():  # Show progress for any Dask operations
-        traj = xr.open_zarr(output_file_path_with_extension)
+    ds = xr.open_zarr(output_path)
+
+    # Convert the .zarr file to a dataframe
+    traj = ds.to_dataframe()
+    traj.reset_index(inplace=True)
+
+    # Assign release_id based on the first observation time for each trajectory
+    # Step 1: Identify the first observation time for each trajectory
+    #first_obs = traj[traj['obs'] == 0][['trajectory', 'time']].copy()
+
+    # Step 2: Create a mapping of first observation time to release_id
+   # first_obs['release_id'] = first_obs.groupby('time').ngroup()
+
+    # Step 3: Merge the release_id back to the original DataFrame
+    #traj = traj.merge(first_obs[['trajectory', 'release_id']], on=['trajectory', 'time'], how='left')
 
     # Return the DataFrame for further use
     return traj
+
 # endregion
+
+def assign_release_id(traj):
+    """
+    Assigns a release_id to each trajectory based on the first observation time.
+
+    Parameters:
+    - traj: DataFrame containing trajectory data with columns 'trajectory', 'time', and 'obs'.
+
+    Returns:
+    - traj: Updated DataFrame with a new 'release_id' column.
+    """
+    # Step 1: Identify the first observation time for each trajectory
+    first_obs = traj[traj['obs'] == 0][['trajectory', 'time']].copy()
+
+    # Step 2: Create a mapping of first observation time to release_id
+    first_obs['release_id'] = first_obs.groupby('time').ngroup()
+
+    # Step 3: Merge the release_id back to the original DataFrame
+    traj = traj.merge(first_obs[['trajectory', 'release_id']], on=['trajectory', 'time'], how='left')
+
+    return traj2
 
 # region Post-Processing
 ## Seasonality
-def spawning_season_filter(traj, traits):
+def spawning_season_filter(traj, traits_df):
+    # Ensure the 'time' column in traj is in datetime format
+    traj['time'] = pd.to_datetime(traj['time'])
+
+    # Convert the spawning_start and spawning_end columns in traits to datetime
+    traits_df['spawning_start'] = pd.to_datetime(traits_df['spawning_start'], dayfirst=True)
+    traits_df['spawning_end'] = pd.to_datetime(traits_df['spawning_end'], dayfirst=True)
+
+    # Dictionary to store the resulting DataFrames
+    spawning_dfs = {}
+
+    # Loop through each species in the traits DataFrame
+    for _, row in traits_df.iterrows():
+        species_name = row['species_name']
+        start_date = row['spawning_start']
+        end_date = row['spawning_end']
+
+        # List to hold trajectories that meet the criteria
+        valid_trajectories = []
+
+        # Iterate over unique trajectory IDs
+        for traj_id in traj['trajectory'].unique():
+            # Subset the data for this trajectory
+            traj_subset = traj[traj['trajectory'] == traj_id]
+
+            # Find the row where obs == 0 (spawning point)
+            spawning_point = traj_subset[traj_subset['obs'] == 0]
+
+            if not spawning_point.empty:
+                # Get the spawning time (time of obs == 0)
+                spawning_time = spawning_point.iloc[0]['time']
+
+                # Check if the spawning time falls within the species' spawning season
+                if start_date <= spawning_time <= end_date:
+                    valid_trajectories.append(traj_subset)
+
+        # Concatenate all valid trajectories for the species into a single DataFrame
+        if valid_trajectories:
+            spawning_dfs[species_name] = pd.concat(valid_trajectories)
+        else:
+            spawning_dfs[species_name] = pd.DataFrame()  # Empty DataFrame if no matches
+
+    return spawning_dfs
+
+def spawning_season_filter2(traj, traits):
     # Ensure the 'time' column is in datetime format
     traj['time'] = pd.to_datetime(traj['time'])
 
@@ -1483,7 +1817,7 @@ def spawning_season_filter(traj, traits):
     return spawning_dfs
 
 ## Planktonic Larval Duration
-def PLD_filter(species_dfs, traits_df):
+def PLD_filter(spawning_dfs, traits_df):
     """
     Crop each species dataframe to retain only observations within the max_PL duration.
 
@@ -1496,7 +1830,7 @@ def PLD_filter(species_dfs, traits_df):
     """
     cropped_dfs = {}
 
-    for species_name, df in species_dfs.items():
+    for species_name, df in spawning_dfs.items():
         # Retrieve the max_PLD for the current species
         max_pld = traits_df.loc[traits_df['species_name'] == species_name, 'max_PLD'].values[0]
 
@@ -1533,7 +1867,7 @@ def PLD_filter(species_dfs, traits_df):
     return cropped_dfs
 
 ## Species-specific Release and Settlement
-def release_settle_filter(trajectories_dict, occurrence_data, settlement_data, full_grid_df, grid_matrix):
+def release_settle_filter(cropped_dfs, release_grids, settlement_grids, grid_ids):
     """
     Filters particle trajectories to keep only those starting at release points where the species occur and
     ending at settlement points (with an optional buffer around the settlement points).
@@ -1560,10 +1894,10 @@ def release_settle_filter(trajectories_dict, occurrence_data, settlement_data, f
         except ValueError:
             print("Invalid input. Please enter an integer for the buffer size.")
 
-    def get_adjacent_grids(grid_id, grid_matrix, buffer):
+    def get_adjacent_grids(grid_id, grid_ids, buffer):
         """ Get the neighboring grid cells around a given grid_id, respecting the matrix structure. """
         # Find the row and column in the matrix
-        position = np.where(grid_matrix == grid_id)
+        position = np.where(grid_ids == grid_id)
         if len(position[0]) == 0:
             return []
         row, col = position[0][0], position[1][0]
@@ -1573,8 +1907,8 @@ def release_settle_filter(trajectories_dict, occurrence_data, settlement_data, f
         for i in range(-buffer, buffer + 1):
             for j in range(-buffer, buffer + 1):
                 new_row, new_col = row + i, col + j
-                if 0 <= new_row < grid_matrix.shape[0] and 0 <= new_col < grid_matrix.shape[1]:
-                    adjacent_grids.append(grid_matrix[new_row, new_col])
+                if 0 <= new_row < grid_ids.shape[0] and 0 <= new_col < grid_ids.shape[1]:
+                    adjacent_grids.append(grid_ids[new_row, new_col])
 
         return adjacent_grids
 
@@ -1582,17 +1916,17 @@ def release_settle_filter(trajectories_dict, occurrence_data, settlement_data, f
     filtered_trajectories = {}
 
     # Iterate through each species
-    for species, traj_df in trajectories_dict.items():
+    for species, traj_df in cropped_dfs.items():
         # 1. Filter based on release location (grid_id in occurrence data)
-        occurrence_grids = set(occurrence_data[species]['grid_id'])
+        occurrence_grids = set(release_grids[species]['grid_id'])
 
         # 2. Filter based on settlement location (grid_id in settlement data, with buffer)
-        settlement_grids = set(settlement_data[species]['grid_id'])
+        settlement = set(settlement_grids[species]['grid_id'])
 
         # Expand the settlement grids with a buffer
         buffered_settlement_grids = set()
-        for grid_id in settlement_grids:
-            buffered_settlement_grids.update(get_adjacent_grids(grid_id, grid_matrix, buffer))
+        for grid_id in settlement:
+            buffered_settlement_grids.update(get_adjacent_grids(grid_id, grid_ids, buffer))
 
         # List to store filtered trajectories for the species
         filtered_trajectories_species = []
@@ -1626,7 +1960,7 @@ def release_settle_filter(trajectories_dict, occurrence_data, settlement_data, f
     return filtered_trajectories, buffered_settlement_grids
 
 # Complete Post-Processing
-def post_process(traj, traits, occurrence_data, settlement_data, full_grid_df, grid_matrix):
+def post_process(traj, traits, release_grids, settlement_grids, grid_ids):
     """
     Perform post-processing on particle trajectory data by applying filters such as PLD, seasonality,
     and spawning/settlement filtering in sequence.
@@ -1637,7 +1971,7 @@ def post_process(traj, traits, occurrence_data, settlement_data, full_grid_df, g
     - occurrence_data (dict): Dictionary of occurrence data for species.
     - settlement_data (dict): Dictionary of settlement data for species.
     - full_grid_df (pd.DataFrame): Dataframe of grid_id, lat/lon for the study area.
-    - grid_matrix (np.array): Matrix of grid_ids for spatial relationships.
+    - grid_ids (np.array): Matrix of grid_ids for spatial relationships.
 
     Returns:
     - processed_data: The trajectory data after all post-processing filters have been applied.
@@ -1645,19 +1979,22 @@ def post_process(traj, traits, occurrence_data, settlement_data, full_grid_df, g
     """
 
     # Start with a copy of the original trajectory data
-    processed_data = traj.copy()
+    data = traj.copy()
+
+    # Change format of traits list to dataframe
+    traits_df = pd.DataFrame(traits)
 
     # Step 1: Apply the spawning seasonality filter
     print("Applying spawning seasonality filter...")
-    processed_data = filter_spawning_trajectories(processed_data, traits)
+    spawning_dfs = spawning_season_filter(data, traits_df)
 
     # Step 2: Apply the PLD (Planktonic Larval Duration) filter
     print("Applying PLD filter...")
-    processed_data = crop_by_PLD(processed_data, traits)
+    cropped_dfs = PLD_filter(spawning_dfs, traits_df)
 
     # Step 3: Apply the spawning/settlement site filter
     print("Applying release/settlement site filter...")
-    processed_data, buffered_settlement_grids = release_settle(processed_data, occurrence_data, settlement_data, full_grid_df, grid_matrix)
+    processed_data, buffered_settlement_grids = release_settle_filter(cropped_dfs, release_grids, settlement_grids, grid_ids)
 
     # Return the final processed data and buffered settlement grids
     return processed_data, buffered_settlement_grids
@@ -1666,18 +2003,24 @@ def post_process(traj, traits, occurrence_data, settlement_data, full_grid_df, g
 
 # region Post-Analysis
 ##Retention Index
-def retention_index_(filtered_trajectories):
+def retention_index(filtered_trajectories):
     species_retention = {}
     overall_same_grid_count = 0
     overall_total_trajectories = 0
 
-    for species, df in species_data.items():
+    for species, df in filtered_trajectories.items():
+        # Skip if the dataframe is empty
+        if df.empty:
+            print(f"No data for {species}, skipping retention index calculation.")
+            continue
+
         # Filter the start and end points (obs == 0 for start and obs == max(obs) for end)
         start_df = df[df['obs'] == 0]
         end_df = df.loc[df.groupby('trajectory')['obs'].idxmax()]
 
         # Merge the start and end dataframes on the trajectory ID
         merged_df = pd.merge(start_df, end_df, on='trajectory', suffixes=('_start', '_end'))
+        #think there is an issue here as retention indices are too high
 
         # Count the number of trajectories that started and ended in the same grid cell
         same_grid_count = (merged_df['grid_id_start'] == merged_df['grid_id_end']).sum()
@@ -1693,10 +2036,13 @@ def retention_index_(filtered_trajectories):
         overall_same_grid_count += same_grid_count
         overall_total_trajectories += total_trajectories
 
-    # Calculate overall retention percentage across all species
-    overall_retention_percentage = (overall_same_grid_count / overall_total_trajectories) * 100
+    if overall_total_trajectories > 0:
+        # Calculate overall retention percentage across all species
+        overall_retention_percentage = (overall_same_grid_count / overall_total_trajectories) * 100
+    else:
+        overall_retention_percentage = 0
 
-    return species_retention, overall_retention_percentage, merged_df
+    return species_retention, overall_retention_percentage #merged_df
 
 ## Mortality
 def mortality(filtered_trajectories):
@@ -1704,7 +2050,12 @@ def mortality(filtered_trajectories):
     overall_start_count = 0
     overall_successful_count = 0
 
-    for species, df in species_data.items():
+    for species, df in filtered_trajectories.items():
+        # Skip if the dataframe is empty
+        if df.empty:
+            print(f"No data for {species}, skipping mortality calculation.")
+            continue
+
         # Filter the start and end points (obs == 0 for start and obs == max(obs) for end)
         start_df = df[df['obs'] == 0]
         end_df = df.loc[df.groupby('trajectory')['obs'].idxmax()]
@@ -1723,8 +2074,11 @@ def mortality(filtered_trajectories):
         overall_start_count += total_trajectories
         overall_successful_count += successful_trajectories
 
-    # Calculate overall mortality percentage across all species
-    overall_mortality_percentage = (1 - (overall_successful_count / overall_start_count)) * 100
+    if overall_start_count > 0:
+        # Calculate overall mortality percentage across all species
+        overall_mortality_percentage = (1 - (overall_successful_count / overall_start_count)) * 100
+    else:
+        overall_mortality_percentage = 0
 
     return species_mortality, overall_mortality_percentage
 
@@ -1734,7 +2088,12 @@ def network_analysis(filtered_trajectories):
     top_10_overall = []
     bottom_10_overall = []
 
-    for species, df in species_data.items():
+    for species, df in filtered_trajectories.items():
+        # Skip if the dataframe is empty
+        if df.empty:
+            print(f"No data for {species}, skipping network analysis.")
+            continue
+
         # Count the number of unique connections per grid cell (id_end)
         connection_counts = df.groupby('grid_id').size().reset_index(name='connections')
 
@@ -1753,9 +2112,13 @@ def network_analysis(filtered_trajectories):
         top_10_overall.append(top_10)
         bottom_10_overall.append(bottom_10)
 
-    # Combine the overall top and bottom 10 across all species into a single dataframe
-    top_10_overall_df = pd.concat(top_10_overall).nlargest(10, 'connections')
-    bottom_10_overall_df = pd.concat(bottom_10_overall).nsmallest(10, 'connections')
+    if top_10_overall and bottom_10_overall:
+        # Combine the overall top and bottom 10 across all species into a single dataframe
+        top_10_overall_df = pd.concat(top_10_overall).nlargest(10, 'connections')
+        bottom_10_overall_df = pd.concat(bottom_10_overall).nsmallest(10, 'connections')
+    else:
+        top_10_overall_df = pd.DataFrame()
+        bottom_10_overall_df = pd.DataFrame()
 
     return species_connections, top_10_overall_df, bottom_10_overall_df
 
@@ -1763,7 +2126,12 @@ def network_analysis(filtered_trajectories):
 def calculate_total_distance_per_species(filtered_trajectories):
     total_distances = []
 
-    for species, df in species_data.items():
+    for species, df in filtered_trajectories.items():
+        # Skip if the dataframe is empty
+        if df.empty:
+            print(f"No data for {species}, skipping distance calculation.")
+            continue
+
         # Sum the distance traveled for the current species
         total_distance = df['distance'].sum()
 
@@ -1800,7 +2168,7 @@ def post_analysis(processed_data):
     # Retention Index
     if apply_retention_index in ['yes', 'y']:
         print("Calculating Retention Index...")
-        species_retention, overall_retention, merged_df = retention_index_(processed_data)
+        species_retention, overall_retention, merged_df = retention_index(processed_data)
         analysis_results['retention_index'] = {
             'species_retention': species_retention,
             'overall_retention': overall_retention,
@@ -1838,103 +2206,113 @@ def post_analysis(processed_data):
 # endregion
 
 # region Complete Interactive Workflow
-def run_interactive_workflow():
+def workflow_step(step_number):
     """
     Main function to guide the user through the interactive workflow.
     This will call all necessary functions in sequence based on user inputs.
+    The user will have to specify the step number of the workflow as they work their way through.
     """
 
     print("\nStarting the interactive workflow...")
 
-    # Step 1: Collect Hydrodynamic Parameters
-    print("\nStep 1: Select Hydrodynamic Data")
-    print("This package uses hydrodynamic data from the Copernicus Marine Service.")
-    print("Use the link below to setup a free account to browse and select your hydrodynamic data.")
-    print("To access the data, you will need information such as your username, password, dataset ID number, longitude and latitude ranges of your study area, and a valid time range.")
-    print("Please see Section X the User Manual for more information.")
-    print("https://data.marine.copernicus.eu/products")
-    hydro_params = params()  # This will call the existing params() function
+    # Load Modules
+    load_modules()
 
-    # Step 2: Download Hydrodynamic Data
-    hydro_data = download_hydrodynamic_data(**hydro_params)
+    # Declare Global variables
+    global runtime, species_traits_path, traits, hydro_params, hydro_data
+    global clean_spp, spp_params, landmask, coastalmask, lonarray, latarray, traits
+    global meshgrid, release_grids, settlement_grids, full_grid_df, grid_ids
+    global fieldset, adjusted_runtime, pset
+    global kernels
+    global traj
+    global filtered_trajectories, buffered_settlement_grids
 
-    # Step 3: Collect Species Occurrence Data Parameters
+    if step_number == 1:
+        # Step 2: Collect Hydrodynamic Parameters
+        print("\nStep 1: Select Hydrodynamic Data")
+        print("This package uses hydrodynamic data from the Copernicus Marine Service.")
+        print("Use the link below to set up a free account to browse and select your hydrodynamic data.")
+        print("To access the data, you will need information such as your username, password, dataset ID number and longitude and latitude ranges of your study area.")
+        print("This package requires the user to provide a species traits dataset with information on the planktonic larval duration and timing of spawning of each species.")
+        print("This data will then be used to select the time range of the simulation and hydrodynamic data.")
+        print("Please see Section X in the User Manual for more information.")
+        print("https://data.marine.copernicus.eu/products")
 
-    # Load all helper functions
-    create_map()
-    read_geojson(file_path)
-    get_spp_occ(species_name, geometry, limit=300)
-    collect_spp_occ_params()
-    edit_spp_params(spp_params)
-    clean_spp_occ(distributions, landmask, coastalmask, lonarray, latarray)
-    create_masks(hydro_data)
-    spp_distribution_map(clean_spp)
+        # Collect parameters
+        hydro_params, species_traits_path, runtime, traits = params()  # This will call the existing params() function
 
-    # Complete species occurrence data download
-    print("\nStep 2: Select Species Traits and Occurrence Data")
-    print("This package requires an input species traits dataset with information on the planktonic larval duration and seasonality of spawning of each species.")
-    print("This data can then be used to access species occurrence data if required.")
-    print("This package has the option to use species occurrence data from the Global Biodiversity Information System (GBIF) or to provide your own species occurrence data.")
-    print("Please see Section X the User Manual for more information.")
-    clean_spp, spp_params, landmask, coastalmask, lonarray, latarray = spp_occ()
+        # Download Hydrodynamic Data
+        hydro_data = download_hydrodynamic_data(**hydro_params)
 
-    # Step 5: Creating Grids
+        print("Step 1 is completed. Run the following in the next cell to continue:\nworkflow_step(2)")
 
-    #Load all helper functions
-    create_grid(coastalmask, lonarray, latarray)
-    map_spp_to_grid(full_grid_df, clean_spp)
-    filter_by_polygon(coastal_grid, shapely_polygon)
-    save_grids(release_grids=None, settlement_grids=None, full_grid=None)
+    elif step_number == 2:
+        # Step 4: Collect Species Occurrence Data Parameters
+        print("\nStep 2: Download Species Occurrence Data")
+        print("This package uses species occurrence data to determine species-specific release and settlement areas.")
+        print("You have the option to download species occurrence data from the Global Biodiversity Information System (GBIF) using the species contained in the trait dataset uploaded in Step 1 or to provide your own species occurrence data.")
+        print("Please visit the GBIF website for further information: https://www.gbif.org/ ")
+        print("Please see Section X in the User Manual for more information.")
 
-    # Complete Grid creation and release and settlement site setup
-    print("\nStep 3: Select a larval release and settlement strategy.")
-    print("This package has the option to release larvae from all coastal sites or from known species-specific distributions.")
-    print("Please see Section X in the User Manual for more information.")
-    meshgrid, release_grids, settlement_grids, full_grid_df, grid_ids = setup_release_settlement(coastalmask, clean_spp, spp_params)
+        # Call spp_occ to gather species occurrence data
+        clean_spp, spp_params, landmask, coastalmask, lonarray, latarray = spp_occ(hydro_data, species_traits_path)
 
-    # Step 6: Create Fieldset
-    fieldset = create_fieldset(hydro_data)
+        print("Step 2 is completed. Run the following in the next cell to continue:\nworkflow_step(3)")
 
-    # Step 7: Create ParticleSet
-    print("\nStep 4: Create a ParticleSet for your community.")
-    print("This package has the option to manually set the number of particles released per site, whether release of particles should be staggered or a single release, if a staggered approach is chosen, the frequency of release and a constant horizontal diffusivity.")
-    print("Please see Section X in the User Manual for more information.")
-    pset = create_pset(fieldset, meshgrid)
+    elif step_number == 3:
+        # Step 5: Grid creation and release and settlement site setup
+        print("\nStep 3: Select a larval release and settlement strategy.")
+        print("This package has the option to release larvae from all coastal sites or from known species-specific distributions.")
+        print("Please see Section X in the User Manual for more information.")
 
-    # Step 8: Create Custom Kernels
-    kernels = create_custom_kernels()
+        # Set up release and settlement grids
+        meshgrid, release_grids, settlement_grids, full_grid_df, grid_ids = setup_release_settlement(coastalmask, clean_spp, spp_params, lonarray, latarray)
 
-    # Step 9: Execute Simulation
-    print("\nStep 5: Execute the simulation.")
-    print("Please see Section X in the User Manual for more information.")
-    execute_simulation(pset, kernels)
+        # Create Fieldset from hydrodynamic data
+        fieldset = create_fieldset(hydro_data, landmask, grid_ids)
 
-    # Step 10: Post-Processing
+        print("Release and settlement grid setup complete.")
+        print("Step 3 is completed. Run the following in the next cell to continue:\nworkflow_step(4)")
 
-    # Load all helper functions
-    spawning_season_filter(traj, traits)
-    PLD_filter(species_dfs, traits_df)
-    release_settle_filter(trajectories_dict, occurrence_data, settlement_data, full_grid_df, grid_matrix)
+    elif step_number == 4:
+        # Step 7: Create ParticleSet
+        print("\nStep 4: Create a ParticleSet for your community.")
+        print("This package allows manual configuration of particles released per site, staggered or single release options, release frequency, and horizontal diffusivity.")
+        print("Please see Section X in the User Manual for more information.")
 
-    # Complete Post-Processing
-    filtered_trajectories, buffered_settlement_grids = post_process_trajectories(traj, traits, occurrence_data, settlement_data, full_grid_df, grid_matrix)
+        # Create ParticleSet
+        pset, adjusted_runtime = create_pset(fieldset, meshgrid, runtime)
 
-    # Step 11: Post-Analysis
+        # Create custom kernels
+        kernels = create_custom_kernels()
 
-    # Load all helper functions
-    retention_index_(filtered_trajectories)
-    mortality(filtered_trajectories)
-    network_analysis(filtered_trajectories)
-    calculate_total_distance_per_species(filtered_trajectories)
+        print("Step 4 is completed. Run the following in the next cell to continue:\nworkflow_step(5)")
 
-    # Complete Post-Analysis
-    print("\nStep 6: Perform Post-Analysis.")
-    print("This package has the option to estimate standard connectivity parameters such as the centrality measures, a retention index, mortality or distance travelled for each species or community.")
-    print("There is also the option to calculate specific ecological community analyses such as a complete network analysis, species-specific propagule pressure on a community and run community similarity analyses.")
-    print("Please see Section X in the User Manual for more information.")
-    post_analysis(filtered_trajectories)
+    elif step_number == 5:
+        # Step 9: Execute Simulation
+        print("\nStep 5: Execute the simulation.")
+        print("Please see Section X in the User Manual for more information.")
 
-    # Indicate completion of the workflow
-    print("\nInteractive workflow completed!")
+        # Execute simulation
+        execute_simulation(pset, kernels, adjusted_runtime)
+
+        # Post-process trajectories
+        filtered_trajectories, buffered_settlement_grids = post_process(traj, traits, release_grids, settlement_grids, grid_ids)
+
+        print("Step 5 is completed. Run the following in the next cell to continue:\nworkflow_step(6)")
+
+    elif step_number == 6:
+        # Step 11: Post-Analysis
+        print("\nStep 6: Perform Post-Analysis.")
+        print("This package can estimate standard connectivity parameters, such as centrality measures, retention index, mortality, or distance traveled for each species.")
+        print("It can also run specific community analyses, such as network analysis, propagule pressure estimation, and community similarity analysis.")
+        print("Please see Section X in the User Manual for more information.")
+
+        # Perform post-analysis
+        post_analysis(filtered_trajectories)
+
+        # Indicate completion of the workflow
+        print("\nInteractive workflow completed!")
+# endregion
 
 # endregion

@@ -1,0 +1,35 @@
+name: community_connectivity  # Name of your environment
+channels:
+  - conda-forge              # Conda-forge channel for open-source packages
+  - defaults                 # Default Conda channel
+dependencies:
+  - python=3.9               # Python version (you can update this as needed)
+  - pip                      # Ensure pip is installed in the environment
+  - parcels                  # Ocean Parcels package
+  - compilers                # Platform-independent compilers (installs gcc, g++, clang as needed)
+  - gcc                      # Ensure compilers are installed
+  - gfortran                 # For Fortran packages
+  - libomp                   # OpenMP support
+  - libgcc-ng                # Ensures proper linking for C libraries
+  - numpy                    # Numerical computing library
+  - pandas                   # Data manipulation library
+  - jupyter                  # Jupyter notebook installation
+  - scipy                    # Scientific library
+  - xarray                   # Handling N-dimensional arrays
+  - matplotlib               # Plotting library
+  - geopandas                # Geospatial analysis tools
+  - shapely                  # Geospatial geometry processing
+  - netCDF4                  # For NetCDF file handling
+  - cartopy                  # Map projections
+  - ipython                  # For Jupyter integration
+  - requests                 # HTTP requests library
+  - folium                   # Interactive maps
+  - psutil                   # System and process utilities
+  - copernicusmarine         # For downloading Copernicus data
+  - trajan                   # Oceanographic and geospatial data
+  - cmocean                  # Colormaps for oceanographic visualizations
+  - pygbif                   # Python client for Global Biodiversity Information Facility (GBIF)
+  - ipywidgets               # Widgets for Jupyter notebooks
+  - pip:
+      - community_connectivity  # Your own package to be installed via pip
+      - pytest                 # For running tests
